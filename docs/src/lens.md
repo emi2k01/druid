@@ -1,7 +1,7 @@
-# Lenses
+# Lenses and the `Lens` trait
 
 Lets say we're building a todo list application, and we are designing the widget
-that will represent a single todo item. Or data model looks like this:
+that will represent a single todo item. Our data model looks like this:
 
 ```rust
 /// A single todo item.
@@ -15,8 +15,8 @@ struct TodoItem {
 
 And we would like our widget to display the title of the item, and then below
 that to display two checkmarks that toggle the 'completed' and 'urgent' bools.
-`Checkbox` is a struct that implements `Widget<bool>`. How do we use it with
-`TodoItem`? By using a `Lens`.
+`Checkbox` (a widget included in druid) implements `Widget<bool>`.
+How do we use it with `TodoItem`? By using a `Lens`.
 
 ## Conceptual
 
@@ -27,12 +27,12 @@ have a `TodoItem`, but you *want* a `bool`.
 A simplified version of the `Lens` trait might look like this:
 
 ```rust
-trait SimpleLens<T, U> {
-    fn focus(&self, data: &T) -> U;
+trait SimpleLens<In, Out> {
+    fn focus(&self, data: &In) -> Out;
 }
 ```
 
-That is, this type takes an instance of `T`, and returns an instance of `U`.
+That is, this type takes an instance of `In`, and returns an instance of `Out`.
 
 For instance, imagine we wanted a lens to focus onto the `completed` state of
 our `TodoItem`. With our simple trait, we might do:
