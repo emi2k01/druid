@@ -113,6 +113,7 @@ struct WindowState {
     invalid: RefCell<Region>,
     click_counter: ClickCounter,
     active_text_input: Cell<Option<TextFieldToken>>,
+    last_anim_timestamp: Cell<f64>,
 }
 
 // TODO: support custom cursors
@@ -148,7 +149,7 @@ impl WindowState {
         }
     }
 
-    fn request_animation_frame(&self, f: impl FnOnce() + 'static) -> Result<i32, Error> {
+    fn request_animation_frame(&self, f: impl FnOnce(&JsValue) + 'static) -> Result<i32, Error> {
         Ok(self
             .window
             .request_animation_frame(Closure::once_into_js(f).as_ref().unchecked_ref())?)
@@ -444,6 +445,7 @@ impl WindowBuilder {
             invalid: RefCell::new(Region::EMPTY),
             click_counter: ClickCounter::default(),
             active_text_input: Cell::new(None),
+            last_anim_timestamp: Cell::new(0.0),
         });
 
         setup_web_callbacks(&window);
@@ -451,7 +453,7 @@ impl WindowBuilder {
         // Register the scale & size with the window handler.
         let wh = window.clone();
         window
-            .request_animation_frame(move || {
+            .request_animation_frame(move |_timestamp| {
                 wh.handler.borrow_mut().scale(scale);
                 wh.handler.borrow_mut().size(size_dp);
             })
@@ -632,8 +634,12 @@ impl WindowHandle {
     fn render_soon(&self) {
         if let Some(s) = self.0.upgrade() {
             let state = s.clone();
-            s.request_animation_frame(move || {
-                state.render();
+            s.request_animation_frame(move |timestamp| {
+                let timestamp = timestamp.as_f64().unwrap();
+                if timestamp != state.last_anim_timestamp.get() {
+                    state.render();
+                    state.last_anim_timestamp.replace(timestamp);
+                }
             })
             .expect("Failed to request animation frame");
         }
@@ -695,7 +701,7 @@ impl IdleHandle {
             if let Some(window_state) = self.state.upgrade() {
                 let state = window_state.clone();
                 window_state
-                    .request_animation_frame(move || {
+                    .request_animation_frame(move |_timestamp| {
                         state.process_idle_queue();
                     })
                     .expect("request_animation_frame failed");
@@ -711,7 +717,7 @@ impl IdleHandle {
             if let Some(window_state) = self.state.upgrade() {
                 let state = window_state.clone();
                 window_state
-                    .request_animation_frame(move || {
+                    .request_animation_frame(move |_timestamp| {
                         state.process_idle_queue();
                     })
                     .expect("request_animation_frame failed");
